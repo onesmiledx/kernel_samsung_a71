@@ -1,14 +1,37 @@
 #!/bin/bash
 
-export ARCH=arm64
-mkdir out
+if [ -d include/config ]; then
+    echo "Find config,will remove it"
+    rm -rf include/config
+else
+    echo "No Config,good."
+fi
 
-BUILD_CROSS_COMPILE=/workspace/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
-KERNEL_LLVM_BIN=/workspace/linux-x86/clang-r498229b/bin/clang
-CLANG_TRIPLE=aarch64-linux-gnu-
-KERNEL_MAKE_ENV="DTC_EXT=$(pwd)/tools/dtc CONFIG_BUILD_ARM64_DT_OVERLAY=y"
+DIR=$(pwd)
+OUT_DIR=$DIR/out
 
-make -j8 -C $(pwd) O=$(pwd)/out $KERNEL_MAKE_ENV ARCH=arm64 LTO=thin CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE a71_defconfig
-make -j8 -C $(pwd) O=$(pwd)/out $KERNEL_MAKE_ENV ARCH=arm64 LTO=thin CROSS_COMPILE=$BUILD_CROSS_COMPILE REAL_CC=$KERNEL_LLVM_BIN CLANG_TRIPLE=$CLANG_TRIPLE
- 
-cp out/arch/arm64/boot/Image $(pwd)/arch/arm64/boot/Image
+if [ ! -d $DIR/prebuilts/proton-clang ]; then
+    echo 'clone Clang Prebuilt'
+    git clone https://github.com/kdrag0n/proton-clang.git $DIR/prebuilts/proton-clang
+fi
+
+if [ ! -d $DIR/prebuilts/gcc ]; then
+    echo 'clone prebuilt gcc arm'
+    git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git $DIR/prebuilts/gcc
+fi
+
+if [ ! -d $DIR/prebuilts/gcc64 ]; then
+ echo 'clone prebuilt gcc aarch64'
+    git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git $DIR/prebuilts/gcc64
+fi
+
+export PATH=$DIR/prebuilts/proton-clang/bin:$PATH
+export PATH=$DIR/prebuilts/gcc/bin:$PATH
+export PATH=$DIR/prebuilts/gcc64/bin:$PATH
+
+CLANG="$DIR/prebuilts/proton-clang/bin"
+GCC="$DIR/prebuilts/gcc/bin"
+GCC64="$DIR/prebuilts/gcc64/bin"
+
+PATH="$CLANG:$GCC64:$GCC:$PATH" make O=out ARCH=arm64 a71_defconfig
+PATH="$CLANG:$GCC64:$GCC:$PATH" make -j4 O=$OUT_DIR LTO=full ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androidebi-
